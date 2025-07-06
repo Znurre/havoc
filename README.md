@@ -123,9 +123,9 @@ std::cout << visit(visitor, value) << std::endl;
 ```
 
 Running this example code would produce the following output:
-> 22
-> 32
-> 42
+> 22  
+> 32  
+> 42  
 
 ### Optional
 
