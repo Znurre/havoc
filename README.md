@@ -63,7 +63,7 @@ using expression = std::variant<binary_expression, unary_expression>;
 ```
 ...perfectly mirrors a grammar where an expression can be *either* a unary expression, or a binary expression.
 
-And while object oriented programmers might be more used to working with inheritence, I think it would be hard to argue that it provides the same overview and 1:1 mapping to the grammar in this scenario.
+And while object oriented programmers might be more used to working with inheritance, I think it would be hard to argue that it provides the same overview and 1:1 mapping to the grammar in this scenario.
 
 ### The problem
 
@@ -71,13 +71,13 @@ Okay, now we've talked about how good `std::variant` is for this use case, so wh
 
 We could work around this by having `expression` be a type alias for `std::variant<std::unique_ptr<binary_expression>, std::unique_ptr<unary_expression>>`, but then we reintroduce one of the problem we tried to solve. All of a sudden, we have nullability in our node tree again. In addition, we can no longer treat the expressions as value objects. We will need to do allocations using `new` or `std::make_unique`.
 
-The same problem occurs with `std::optional`. We just want to have our node tree mirror our grammar, and sometimes, a node is optional in the grammar. This should be reflected in the code as well. Using `std::optional` for this feels like a great choice, but once again we end up causing a singularity of allocations. It could be replaced by `std::unique_ptr`, and one could even argue that this would be reasonable since this is a case where we actually *want* the nullability. However, once again it would make things clumsier to work with. If you are like me, you want to work with value objects, with value semantics, and the fact that a value is *optional* should not change that fact.
+The same problem occurs with `std::optional`. We just want to have our node tree mirror our grammar, and sometimes, a node is optional in the grammar. This should be reflected in the code as well. Using `std::optional` for this feels like a great choice, but once again we end up causing a singularity of allocations in case of recursion. It could be replaced by `std::unique_ptr`, and one could even argue that this would be reasonable since this is a case where we actually *want* the nullability. However, once again it would make things clumsier to work with. If you are like me, you want to work with value objects, with value semantics, and the fact that a value is *optional* should not change that fact.
 
 ### The solution
 
 It quickly becomes apparent that what we want is actually something like `std::variant` and `std::optional`, but backed by dynamically allocated memory. This way, there are no memory allocation singularities, and no issues with recursion.
 
-This is where HAVOC comes into the picture. It provides a type called `one_of`, which is basically an `std::variant`, and a type called `optional` which is... well, `std::optional`. Both have value semantics, but uses `std::unique_ptr` behind the scenes to allocate and manage their storage.
+This is where HAVOC comes into the picture. It provides a type called `one_of`, which is basically an `std::variant`, and a type called `optional` which is... well, `std::optional`. Both have value semantics, but use `std::unique_ptr` behind the scene to allocate and manage their storage.
 
 The `one_of` type even provides transparent, lazy instantiation of a value in case you try to access a non-initialized instance. Basically, the intention is to have it act and appear as if it was an `std::variant` - but without any of the caveats that we mentioned above. No nullability (unless you wrap it in an `optional` ofc), no issues with recursion. Only happiness.
 
@@ -87,3 +87,62 @@ HAVOC is shipped as a single C++20 compliant header file, and can simply be incl
 
 The easiest one is `optional`, where the only difference is that it has a reduced API. Basically, I only implemented whatever I needed for my use case, but it could easily be extended if needed.
 
+As for `one_of`, it differs more. You can instantiate and assign to it just like you would with an `std::variant`, but when you want to consume its value you would use `havoc::visit` instead of `std::visit`. `havoc::visit` works slightly different from `std::visit`, as you pass a visitor object to it instead of a lambda. The type of the visitor object is expected to have one `visit` method for every type represented by the `one_of` object, as well as a type alias called `result` which should provide the return type used for the visitor. All methods of the visitor will be expected to return a value of this type.
+
+### Simple example
+
+```cpp
+struct visitor
+{
+	using result = int;
+
+	int visit(int i)
+	{
+		return i * 2;
+	}
+
+	int visit(bool b)
+	{
+		return b ? 32 : 42;
+	}
+};
+
+havoc::one_of<int, bool> value(11);
+
+visitor visitor;
+
+std::cout << visit(visitor, value) << std::endl;
+
+value = true;
+
+std::cout << visit(visitor, value) << std::endl;
+
+value = false;
+
+std::cout << visit(visitor, value) << std::endl;
+```
+
+Running this example code would produce the following output:
+> 22
+> 32
+> 42
+
+### Optional
+
+The `optional` type works the same, and can also be used with `havoc::visit` for convenience. 
+
+## Other questions
+
+### Why is one_of implemented in such an... interesting way?
+
+Because it was easy, and it was fun. 
+
+### Would it not impact memory usage negatively?
+
+It's difficult to compare memory usage 1:1 with `std::variant` anyway, since the storage is dynamically allocated for `any_of`. Depending on your usage, memory requirements for `any_of` might be higher than `std::variant` due to each potential type holding its own storage pointer, as well as storage not being deallocated when the stored type changes.
+
+### Will havoc::visit be more computationally expensive than std::visit due to the implementation?
+
+Using `havoc::visit` could be more expensive, as you will have to traverse all types in order to find which one was most recently assigned. Basically, the performance of `havoc::visit` *should* be comparable to an `std::variant` having its index set to the index of the last type stored in the variant. On the flip side, the performance of `havoc::visit` should always be linear with the number of types stored and will not vary based on which index is used.
+
+No matter what, the overhead should be minimal, and the ease of implementation offsets the possible performance hit in my opinion.
