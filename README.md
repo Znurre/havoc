@@ -111,15 +111,15 @@ havoc::one_of<int, bool> value(11);
 
 visitor visitor;
 
-std::cout << visit(visitor, value) << std::endl;
+std::cout << havoc::visit(visitor, value) << std::endl;
 
 value = true;
 
-std::cout << visit(visitor, value) << std::endl;
+std::cout << havoc::visit(visitor, value) << std::endl;
 
 value = false;
 
-std::cout << visit(visitor, value) << std::endl;
+std::cout << havoc::visit(visitor, value) << std::endl;
 ```
 
 Running this example code would produce the following output:
