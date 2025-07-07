@@ -20,16 +20,16 @@ namespace havoc
 		{
 		}
 
-		optional(optional<T>&& other)
+		optional(optional&& other)
 			: _storage(std::move(other._storage))
 		{
 		}
 
-		optional(const optional<T>& other)
+		optional(const optional& other)
 		{
 			if (other)
 			{
-				_storage = std::make_unique<T>(*other);
+				get_or_create() = *other;
 			}
 		}
 
@@ -43,6 +43,16 @@ namespace havoc
 		optional& operator=(const T& value)
 		{
 			get_or_create() = value;
+
+			return *this;
+		}
+
+		optional& operator=(const optional& other)
+		{
+			if (other)
+			{
+				get_or_create() = *other;
+			}
 
 			return *this;
 		}
@@ -104,6 +114,12 @@ namespace havoc
 
 		option(option<T>&& other)
 			: _storage(std::move(other._storage))
+			, _timestamp(other._timestamp)
+		{
+		}
+
+		option(const option<T>& other)
+			: _storage(other._storage)
 			, _timestamp(other._timestamp)
 		{
 		}
