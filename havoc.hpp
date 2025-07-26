@@ -3,8 +3,13 @@
 #include <memory>
 #include <optional>
 
+#ifdef __GNUC__
+#include <x86intrin.h>
+#endif
+
 namespace havoc
 {
+
 	template <typename T>
 	struct optional
 	{
@@ -128,6 +133,14 @@ namespace havoc
 		{
 			_timestamp = __rdtsc();
 			_storage = value;
+
+			return *this;
+		}
+
+		option& operator=(const option<T>& other)
+		{
+			_timestamp = other._timestamp;
+			_storage = other._storage;
 
 			return *this;
 		}
