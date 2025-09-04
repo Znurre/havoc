@@ -1,14 +1,12 @@
 #pragma once
 
+#include <atomic>
 #include <memory>
 #include <optional>
 
-#ifdef __GNUC__
-#include <x86intrin.h>
-#endif
-
 namespace havoc
 {
+	static inline std::atomic_uint64_t _counter;
 
 	template <typename T>
 	struct optional
@@ -113,7 +111,7 @@ namespace havoc
 
 		option(T&& value)
 			: _storage(value)
-			, _timestamp(__rdtsc())
+			, _timestamp(++_counter)
 		{
 		}
 
@@ -131,7 +129,7 @@ namespace havoc
 
 		option& operator=(T&& value)
 		{
-			_timestamp = __rdtsc();
+			_timestamp = ++_counter;
 			_storage = value;
 
 			return *this;
